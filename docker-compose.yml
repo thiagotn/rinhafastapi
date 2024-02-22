@@ -11,8 +11,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.3'
-          memory: '100MB'
+          cpus: '0.5'
+          memory: '200MB'
 
   api2: 
     <<: *api
@@ -36,8 +36,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.7'
-          memory: '300MB'
+          cpus: '0.3'
+          memory: '100MB'
 
   nginx:
     image: nginx 
