@@ -8,7 +8,7 @@ from psycopg import DatabaseError
 
 
 def get_conn_str():
-    # local
+    #local
     # return f"""
     # dbname=rinha
     # user=thiago
@@ -82,7 +82,7 @@ async def post_transaction(request: Request, id: int, transaction: TransactionRe
     async with request.app.async_pool.connection() as conn:
         async with conn.cursor() as cur:
             
-            if transaction.descricao == None or len(transaction.descricao) == 0 or len(transaction.descricao) > 10 == "":
+            if transaction.descricao == None or len(transaction.descricao) == 0 or len(transaction.descricao) > 10:
                 print("invalid description")
                 raise HTTPException(status_code=422)
 
@@ -100,7 +100,7 @@ async def post_transaction(request: Request, id: int, transaction: TransactionRe
                 saldo = response[1]
                 return { "limite": limite, "saldo": saldo }
             except (Exception, DatabaseError) as error:
-                raise HTTPException(status_code=422, detail=f"Não é possível realizar a transação: - {error}")
+                raise HTTPException(status_code=422, detail=f"Não é possível realizar a transação: limite: {limite} - saldo: {saldo} Erro: - {error}")
 
 
 @app.get("/clientes/{id}/extrato")

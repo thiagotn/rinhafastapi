@@ -41,12 +41,16 @@ BEGIN
 
     IF transactionType = 'd' THEN
         IF amount > actualBalance + actualLimit THEN
-            RAISE EXCEPTION 'Amount is greater than balance and limit';
+            RAISE EXCEPTION 'Valor é maior que o seu saldo + limite';
         END IF;
 
         IF amount > actualBalance AND amount < (actualBalance + actualLimit) THEN
             actualBalance = actualBalance - amount;
             actualLimit = actualLimit - abs(actualBalance);
+        END IF;
+
+        IF (amount - abs(actualLimit) < 0) THEN
+            RAISE EXCEPTION 'Valor ultrapassa os seus limites';
         END IF;
 
         UPDATE accounts
