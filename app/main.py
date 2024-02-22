@@ -100,7 +100,7 @@ async def post_transaction(request: Request, id: int, transaction: TransactionRe
                 saldo = response[1]
                 return { "limite": limite, "saldo": saldo }
             except (Exception, DatabaseError) as error:
-                raise HTTPException(status_code=422, detail=f"Não é possível realizar a transação: limite: {limite} - saldo: {saldo} Erro: - {error}")
+                raise HTTPException(status_code=422, detail=f"Não é possível realizar a transação: Erro: - {error}")
 
 
 @app.get("/clientes/{id}/extrato")
