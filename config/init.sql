@@ -48,16 +48,23 @@ BEGIN
     RAISE NOTICE 'Limite: %', actualLimit;
 
     IF transactionType = 'd' THEN
-        IF amount > actualBalance + actualLimit THEN
+
+        IF amount < 0 THEN
+            RAISE EXCEPTION 'Valor não pode ser negativo';
+        END IF;
+
+        IF (actualBalance - amount) > actualLimit THEN
             RAISE EXCEPTION 'Valor é maior que o seu saldo + limite';
         END IF;
 
-        IF amount > 0 OR (actualBalance + amount >= actualLimit) THEN
-            actualBalance = actualBalance - amount;
-            UPDATE accounts
-            SET balance = actualBalance
-            WHERE id = accountId;
+        actualBalance = actualBalance - amount;
+        IF (abs(actualBalance) > actualLimit) THEN
+            RAISE EXCEPTION 'Limite excedido';
         END IF;
+
+        UPDATE accounts
+        SET balance = balance - amount
+        WHERE id = accountId;
     END IF;
 
     IF transactionType = 'c' THEN
@@ -66,6 +73,8 @@ BEGIN
         SET balance = balance + amount
         WHERE id = accountId;
     END IF;
+
+    RAISE NOTICE 'Novo Saldo: %', actualBalance;
 
     INSERT INTO transactions (account_id, value, transaction_type, description, created_at)
     VALUES (accountId, amount, transactionType, description, (NOW() at time zone 'utc'));
