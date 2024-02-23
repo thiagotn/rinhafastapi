@@ -1,6 +1,6 @@
 services:
   api1: &api
-    image: thiagotn/rinhafast
+    image: thiagotn/rinhafastapi
     hostname: api1
     container_name: api1
     environment:
