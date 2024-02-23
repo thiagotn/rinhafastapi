@@ -83,18 +83,15 @@ async def post_transaction(request: Request, id: int, transaction: TransactionRe
         async with conn.cursor() as cur:
             
             if transaction.descricao == None or len(transaction.descricao) == 0 or len(transaction.descricao) > 10:
-                print("invalid description")
                 raise HTTPException(status_code=422)
 
             transaction_value = validate_value(value=transaction.valor)
             
             if transaction.tipo not in ["c", "d"]:
-                print("invalid transaction type...")
                 raise HTTPException(status_code=422)
 
             try:
                 await cur.execute("SELECT * FROM CreateTransaction(%s,%s,%s,%s)", (id, transaction_value, transaction.descricao, transaction.tipo))
-                print("executed....")
                 response = await cur.fetchone()
                 limite = response[0]
                 saldo = response[1]
@@ -105,38 +102,30 @@ async def post_transaction(request: Request, id: int, transaction: TransactionRe
 
 @app.get("/clientes/{id}/extrato")
 async def get_balance_and_transactions(request: Request, id: int):
-    print(f"testando...{id}")
     async with request.app.async_pool.connection() as conn:
         async with conn.cursor() as cur:
             await cur.execute("""
-                SELECT a.id, a.balance, a.account_limit, t.value, t.transaction_type, t.description, t.created_at
-                FROM accounts a
-                LEFT OUTER JOIN transactions t ON a.id = t.account_id
-                WHERE a.id = %s
-                ORDER BY t.created_at DESC
-                LIMIT 10;
+                SELECT balance, account_limit
+                FROM accounts
+                WHERE id = %s;
             """, (id,))
-            results = await cur.fetchall()
-            print(len(results))
-            if len(results) == 0:
+            account = await cur.fetchone()
+            if account == None:
                 raise HTTPException(status_code=404, detail="Cliente não encontrado")
             
-            transactions = []
-            balance = 0
-            for result in results:
-                account_id = result[0]
-                print("account_id: ", account_id)
-                balance = result[1]
-                account_limit = result[2]
-                if result[3] == None:
-                    continue
-                value = result[3]
-                type_db = result[4]
-                print("type_db: ", type_db)
-                transaction_type = type_db.replace('credit', 'c') if type_db == 'c' else type_db.replace('debit', 'd')
-                description = result[5]
-                created_at = result[6]
-                transaction_base = TransactionResponse(valor=value, tipo=transaction_type, descricao=description, realizada_em=created_at)
-                transactions.append(transaction_base)
-
-            return { "saldo": { "total": balance, "data_extrato": datetime.now(), "limite": account_limit, "transacoes": transactions } }
+            await cur.execute("""
+                SELECT value, transaction_type, description, created_at
+                FROM transactions
+                WHERE account_id = %s
+                ORDER BY created_at DESC
+                LIMIT 10;
+            """, (id,))
+            transactions = await cur.fetchall()
+            print(f"transactions: {len(transactions)}")
+            transactions_response = []
+            if len(transactions) > 0: 
+                for transaction in transactions:
+                    transaction_base = TransactionResponse(valor=transaction[0], tipo=transaction[1], descricao=transaction[2], realizada_em=transaction[3])
+                    transactions_response.append(transaction_base)
+ 
+            return { "saldo": { "total": account[0], "data_extrato": datetime.now(), "limite": account[1], "transacoes": transactions_response } }

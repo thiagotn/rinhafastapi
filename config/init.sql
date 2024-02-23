@@ -35,31 +35,33 @@ DECLARE
     actualLimit INT;
     actualBalance INT;
 BEGIN
-    SELECT ac.account_limit, ac.balance INTO actualLimit, actualBalance  
-    FROM accounts ac
-    WHERE id = accountId;
+    SELECT account_limit, balance INTO actualLimit, actualBalance FROM accounts WHERE id = accountId;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Conta não encontrada';
+    END IF;
+
+    RAISE NOTICE 'Tipo da Transacao: %', transactionType;
+    RAISE NOTICE 'Valor da Transacao: %', amount;
+    RAISE NOTICE 'Conta: %', accountId;
+    RAISE NOTICE 'Saldo: %', actualBalance;
+    RAISE NOTICE 'Limite: %', actualLimit;
 
     IF transactionType = 'd' THEN
         IF amount > actualBalance + actualLimit THEN
             RAISE EXCEPTION 'Valor é maior que o seu saldo + limite';
         END IF;
 
-        IF amount > actualBalance AND amount < (actualBalance + actualLimit) THEN
+        IF amount > 0 OR (actualBalance + amount >= actualLimit) THEN
             actualBalance = actualBalance - amount;
-            actualLimit = actualLimit - abs(actualBalance);
+            UPDATE accounts
+            SET balance = actualBalance
+            WHERE id = accountId;
         END IF;
-
-        IF (amount - abs(actualLimit) < 0) THEN
-            RAISE EXCEPTION 'Valor ultrapassa os seus limites';
-        END IF;
-
-        UPDATE accounts
-        SET balance = actualBalance,
-        account_limit = actualLimit
-        WHERE id = accountId;
     END IF;
 
     IF transactionType = 'c' THEN
+        actualBalance = actualBalance + amount;
         UPDATE accounts
         SET balance = balance + amount
         WHERE id = accountId;
@@ -68,5 +70,6 @@ BEGIN
     INSERT INTO transactions (account_id, value, transaction_type, description, created_at)
     VALUES (accountId, amount, transactionType, description, current_timestamp);
 
-    RETURN QUERY SELECT c.account_limit as limite, c.balance as saldo FROM accounts c WHERE c.id = accountId;
+    RETURN QUERY SELECT actualLimit, actualBalance;
+
 END;$$;
