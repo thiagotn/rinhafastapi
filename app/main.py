@@ -55,7 +55,6 @@ class TransactionResponse:
 def validate_value(value: float):
     absolute_value = int(value)
     if value > absolute_value:
-        print("invalid value")
         raise HTTPException(status_code=422)
     return absolute_value
 

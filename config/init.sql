@@ -68,7 +68,7 @@ BEGIN
     END IF;
 
     INSERT INTO transactions (account_id, value, transaction_type, description, created_at)
-    VALUES (accountId, amount, transactionType, description, current_timestamp);
+    VALUES (accountId, amount, transactionType, description, (NOW() at time zone 'utc'));
 
     RETURN QUERY SELECT actualLimit, actualBalance;
 
