@@ -127,4 +127,4 @@ async def get_balance_and_transactions(request: Request, id: int):
                     transaction_base = TransactionResponse(valor=transaction[0], tipo=transaction[1], descricao=transaction[2], realizada_em=transaction[3])
                     transactions_response.append(transaction_base)
  
-            return { "saldo": { "total": account[0], "data_extrato": datetime.now(), "limite": account[1], "transacoes": transactions_response } }
+            return { "saldo": { "total": account[0], "data_extrato": datetime.now(), "limite": account[1] } , "ultimas_transacoes": transactions_response }
