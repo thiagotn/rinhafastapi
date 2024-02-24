@@ -1,10 +1,10 @@
-CREATE TABLE accounts (
+CREATE UNLOGGED TABLE accounts (
     id SERIAL PRIMARY KEY,
     account_limit integer,
     balance integer
 );
 
-CREATE TABLE transactions (
+CREATE UNLOGGED TABLE transactions (
     id SERIAL PRIMARY KEY,
     value integer,
     transaction_type character varying(10),
@@ -35,7 +35,7 @@ DECLARE
     actualLimit INT;
     actualBalance INT;
 BEGIN
-    SELECT account_limit, balance INTO actualLimit, actualBalance FROM accounts WHERE id = accountId;
+    SELECT account_limit, balance INTO actualLimit, actualBalance FROM accounts WHERE id = accountId FOR UPDATE;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Conta não encontrada';
@@ -48,7 +48,6 @@ BEGIN
     RAISE NOTICE 'Limite: %', actualLimit;
 
     IF transactionType = 'd' THEN
-
         IF amount < 0 THEN
             RAISE EXCEPTION 'Valor não pode ser negativo';
         END IF;
@@ -61,24 +60,20 @@ BEGIN
         IF (abs(actualBalance) > actualLimit) THEN
             RAISE EXCEPTION 'Limite excedido';
         END IF;
-
-        UPDATE accounts
-        SET balance = balance - amount
-        WHERE id = accountId;
     END IF;
 
     IF transactionType = 'c' THEN
         actualBalance = actualBalance + amount;
-        UPDATE accounts
-        SET balance = balance + amount
-        WHERE id = accountId;
     END IF;
 
-    RAISE NOTICE 'Novo Saldo: %', actualBalance;
+    UPDATE accounts
+    SET balance = actualBalance
+    WHERE id = accountId;
+
+    LOCK TABLE transactions IN ACCESS EXCLUSIVE MODE;
 
     INSERT INTO transactions (account_id, value, transaction_type, description, created_at)
     VALUES (accountId, amount, transactionType, description, (NOW() at time zone 'utc'));
 
     RETURN QUERY SELECT actualLimit, actualBalance;
-
 END;$$;
