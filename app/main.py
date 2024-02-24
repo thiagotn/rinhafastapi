@@ -1,7 +1,6 @@
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
-import enum
 from fastapi import FastAPI, Request, HTTPException
 from psycopg_pool import AsyncConnectionPool
 from psycopg import DatabaseError
@@ -41,10 +40,6 @@ class TransactionRequest:
     tipo: str
     descricao: str
     
-class TransactionType(enum.Enum):
-    credit = "c"
-    debit = "d"
-    
 @dataclass
 class TransactionResponse:
     valor: float
@@ -58,22 +53,6 @@ def validate_value(value: float):
         raise HTTPException(status_code=422)
     return absolute_value
 
-def reaching_limit(balance, limit_amount, amount):
-    if (balance - amount) > limit_amount:
-        return False
-    return abs(balance - amount) > limit_amount
-    
-
-@app.get("/clientes")
-async def get_accounts(request: Request):
-    async with request.app.async_pool.connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute("""
-                SELECT * 
-                FROM accounts
-            """)
-            results = await cur.fetchall()
-            return results
 
 @app.post("/clientes/{id}/transacoes")
 async def post_transaction(request: Request, id: int, transaction: TransactionRequest):
