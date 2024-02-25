@@ -26,7 +26,6 @@ def get_conn_str():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print(f"Creating connection pool to {get_conn_str()}")
     app.async_pool = AsyncConnectionPool(kwargs={"autocommit": True}, conninfo=get_conn_str())
     yield
     await app.async_pool.close()
@@ -56,26 +55,24 @@ def validate_value(value: float):
 
 @app.post("/clientes/{id}/transacoes")
 async def post_transaction(request: Request, id: int, transaction: TransactionRequest):
-    print(f"transaction: {transaction}")
+    if transaction.descricao == None or len(transaction.descricao) == 0 or len(transaction.descricao) > 10:
+        raise HTTPException(status_code=422)
+
+    transaction_value = validate_value(value=transaction.valor)
+    
+    if transaction.tipo not in ["c", "d"]:
+        raise HTTPException(status_code=422)
+
     async with request.app.async_pool.connection() as conn:
         async with conn.cursor() as cur:
-            
-            if transaction.descricao == None or len(transaction.descricao) == 0 or len(transaction.descricao) > 10:
-                raise HTTPException(status_code=422)
-
-            transaction_value = validate_value(value=transaction.valor)
-            
-            if transaction.tipo not in ["c", "d"]:
-                raise HTTPException(status_code=422)
-
             try:
                 await cur.execute("SELECT * FROM CreateTransaction(%s,%s,%s,%s)", (id, transaction_value, transaction.descricao, transaction.tipo))
                 response = await cur.fetchone()
                 limite = response[0]
                 saldo = response[1]
                 return { "limite": limite, "saldo": saldo }
-            except (Exception, DatabaseError) as error:
-                raise HTTPException(status_code=422, detail=f"Não é possível realizar a transação: Erro: - {error}")
+            except (Exception, DatabaseError) as _:
+                raise HTTPException(status_code=422)
 
 
 @app.get("/clientes/{id}/extrato")
@@ -89,7 +86,7 @@ async def get_balance_and_transactions(request: Request, id: int):
             """, (id,))
             account = await cur.fetchone()
             if account == None:
-                raise HTTPException(status_code=404, detail="Cliente não encontrado")
+                raise HTTPException(status_code=404)
             
             await cur.execute("""
                 SELECT value, transaction_type, description, created_at
@@ -99,7 +96,6 @@ async def get_balance_and_transactions(request: Request, id: int):
                 LIMIT 10;
             """, (id,))
             transactions = await cur.fetchall()
-            print(f"transactions: {len(transactions)}")
             transactions_response = []
             if len(transactions) > 0: 
                 for transaction in transactions:
