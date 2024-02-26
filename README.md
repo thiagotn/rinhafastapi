@@ -17,4 +17,4 @@ Submissão feita com:
 - `fastpi` para api com as libs `psycopg3` e `psycopg-pool`
 - [repositório da api](https://github.com/thiagotn/rinhafastapi)
 
-[@tnogueira](https://twitter.com/tnogueira) @ twitter
+[@thiagotn](https://twitter.com/thiagotn) @ twitter
