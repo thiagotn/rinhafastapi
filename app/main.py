@@ -1,26 +1,22 @@
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
+import os
 from fastapi import FastAPI, Request, HTTPException
 from psycopg_pool import AsyncConnectionPool
 from psycopg import DatabaseError
 
 
 def get_conn_str():
-    #local
-    # return f"""
-    # dbname=rinha
-    # user=thiago
-    # password=
-    # host=127.0.0.1
-    # port=5432
-    # """
-    # docker
+    dbname = os.environ.get("POSTGRES_DB")
+    user = os.environ.get("POSTGRES_USER")
+    password = os.environ.get("POSTGRES_PASSWORD")
+    host = os.environ.get("POSTGRES_HOST")
     return f"""
-    dbname=rinha
-    user=admin
-    password=123
-    host=db
+    dbname={dbname}
+    user={user}
+    password={password}
+    host={host}
     port=5432
     """
 
