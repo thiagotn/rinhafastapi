@@ -1,13 +1,17 @@
 services:
   api1: &api
-    image: thiagotn/rinhafastapi
+    image: thiagotn/rinhafastapi:1.0
     hostname: api1
     container_name: api1
     environment:
-      - DB_HOST=db
-      - DB_POOL_SIZE=5
+      POSTGRES_PASSWORD: 123
+      POSTGRES_USER: admin
+      POSTGRES_DB: rinha
+      POSTGRES_HOST: db
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    restart: always
     deploy:
       resources:
         limits:
@@ -21,6 +25,11 @@ services:
 
   db:
     image: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     hostname: db
     container_name: db
     environment:
