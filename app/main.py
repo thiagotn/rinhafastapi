@@ -18,10 +18,12 @@ def get_conn_str():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    max_connections = os.getenv("MAX_CONNECTIONS", 10)
+    max_connections = os.getenv("MAX_CONNECTIONS", 5)
+    min_connections = os.getenv("MIN_CONNECTIONS", 1)
     app.async_pool = AsyncConnectionPool(
         kwargs={"autocommit": True}, 
         max_size=int(max_connections), 
+        min_size=int(min_connections),
         conninfo=get_conn_str())
     yield
     await app.async_pool.close()
