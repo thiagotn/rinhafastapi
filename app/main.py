@@ -17,7 +17,7 @@ def get_conn_str():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.async_pool = AsyncConnectionPool(kwargs={"autocommit": True}, max_size=20, conninfo=get_conn_str())
+    app.async_pool = AsyncConnectionPool(kwargs={"autocommit": True}, max_size=15, conninfo=get_conn_str())
     yield
     await app.async_pool.close()
 

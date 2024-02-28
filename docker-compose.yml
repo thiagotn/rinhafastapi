@@ -24,6 +24,8 @@ services:
     volumes:
       - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./config/postgresql.conf:/etc/postgresql/postgresql.conf
+      - type: tmpfs
+        target: /var/lib/postgresql/data
     command: postgres -c config_file=/etc/postgresql/postgresql.conf
     network_mode: host
     healthcheck:
