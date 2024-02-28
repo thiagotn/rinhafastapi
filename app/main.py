@@ -1,28 +1,23 @@
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
-import os
 from fastapi import FastAPI, Request, HTTPException
 from psycopg_pool import AsyncConnectionPool
 from psycopg import DatabaseError
 
 
 def get_conn_str():
-    dbname = os.environ.get("POSTGRES_DB")
-    user = os.environ.get("POSTGRES_USER")
-    password = os.environ.get("POSTGRES_PASSWORD")
-    host = os.environ.get("POSTGRES_HOST")
     return f"""
-    dbname={dbname}
-    user={user}
-    password={password}
-    host={host}
+    dbname=rinha
+    user=rinha
+    password=rinha
+    host=localhost
     port=5432
     """
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.async_pool = AsyncConnectionPool(kwargs={"autocommit": True}, conninfo=get_conn_str())
+    app.async_pool = AsyncConnectionPool(kwargs={"autocommit": True}, max_size=20, conninfo=get_conn_str())
     yield
     await app.async_pool.close()
 
