@@ -4,6 +4,8 @@ services:
     hostname: api1
     command: uvicorn app.main:app --port 3000
     network_mode: host
+    environment:
+      - MAX_CONNECTIONS=10
     depends_on:
       db:
         condition: service_healthy
@@ -19,7 +21,7 @@ services:
     command: uvicorn app.main:app --port 3001
 
   db:
-    image: postgres
+    image: postgres:16
     hostname: db
     volumes:
       - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql

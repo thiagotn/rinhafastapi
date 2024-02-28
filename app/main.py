@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
+import os
 from fastapi import FastAPI, Request, HTTPException
 from psycopg_pool import AsyncConnectionPool
 from psycopg import DatabaseError
@@ -17,7 +18,11 @@ def get_conn_str():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.async_pool = AsyncConnectionPool(kwargs={"autocommit": True}, max_size=15, conninfo=get_conn_str())
+    max_connections = os.getenv("MAX_CONNECTIONS", 10)
+    app.async_pool = AsyncConnectionPool(
+        kwargs={"autocommit": True}, 
+        max_size=int(max_connections), 
+        conninfo=get_conn_str())
     yield
     await app.async_pool.close()
 
