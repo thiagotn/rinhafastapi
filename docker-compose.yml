@@ -7,6 +7,10 @@ services:
     environment:
       - MAX_CONNECTIONS=5
       - MIN_CONNECTIONS=1
+      - POSTGRES_DB=rinha
+      - POSTGRES_USER=rinha
+      - POSTGRES_PASSWORD=rinha
+      - POSTGRES_HOST=localhost
     depends_on:
       db:
         condition: service_healthy
