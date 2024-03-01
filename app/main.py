@@ -9,10 +9,10 @@ from psycopg import DatabaseError
 
 def get_conn_str():
     return f"""
-    dbname=rinha
-    user=rinha
-    password=rinha
-    host=localhost
+    dbname={os.getenv("POSTGRES_DB", "rinha")}
+    user={os.getenv("POSTGRES_USER", "thiago")}
+    password={os.getenv("POSTGRES_PASSWORD", "")}
+    host={os.getenv("POSTGRES_HOST", "localhost")}
     port=5432
     """
 
@@ -76,28 +76,43 @@ async def post_transaction(request: Request, id: int, transaction: TransactionRe
 @app.get("/clientes/{id}/extrato")
 async def get_balance_and_transactions(request: Request, id: int):
     async with request.app.async_pool.connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute("""
-                SELECT balance, account_limit
-                FROM accounts
-                WHERE id = %s;
-            """, (id,))
-            account = await cur.fetchone()
-            if account == None:
-                raise HTTPException(status_code=404)
-            
-            await cur.execute("""
+        async with conn.pipeline() as p, conn.cursor() as cur:
+            balance_query = cur.execute(
+                "SELECT balance, account_limit FROM accounts WHERE id = %s", [id]
+            )
+            transactions_query = cur.execute(
+                """
                 SELECT value, transaction_type, description, created_at
                 FROM transactions
                 WHERE account_id = %s
                 ORDER BY created_at DESC
-                LIMIT 10;
-            """, (id,))
-            transactions = await cur.fetchall()
+                LIMIT 10
+                """,
+                [id],
+            )
+
+            await p.sync()
+
+            balance = await balance_query
+            balance_result = None
+            limi_result = None
+            async for record in balance:
+                balance_result = record[0]
+                limi_result = record[1]
+
+            if balance_result is None:
+                raise HTTPException(status_code=404)
+
+            transactions = await transactions_query
             transactions_response = []
-            if len(transactions) > 0: 
-                for transaction in transactions:
-                    transaction_base = TransactionResponse(valor=transaction[0], tipo=transaction[1], descricao=transaction[2], realizada_em=transaction[3])
-                    transactions_response.append(transaction_base)
- 
-            return { "saldo": { "total": account[0], "data_extrato": datetime.now(), "limite": account[1] } , "ultimas_transacoes": transactions_response }
+            async for transaction in transactions:
+                transactions_response.append(
+                    TransactionResponse(
+                        valor=transaction[0],
+                        tipo=transaction[1],
+                        descricao=transaction[2],
+                        realizada_em=transaction[3],
+                    )
+                )
+
+            return { "saldo": { "total": balance_result, "data_extrato": datetime.now(), "limite": limi_result } , "ultimas_transacoes": transactions_response }
