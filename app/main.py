@@ -72,47 +72,53 @@ async def post_transaction(request: Request, id: int, transaction: TransactionRe
             except (Exception, DatabaseError) as _:
                 raise HTTPException(status_code=422)
 
-
+        
 @app.get("/clientes/{id}/extrato")
 async def get_balance_and_transactions(request: Request, id: int):
     async with request.app.async_pool.connection() as conn:
-        async with conn.pipeline() as p, conn.cursor() as cur:
-            balance_query = cur.execute(
-                "SELECT balance, account_limit FROM accounts WHERE id = %s", [id]
-            )
-            transactions_query = cur.execute(
+        async with conn.cursor() as cur:
+            await cur.execute(
                 """
-                SELECT value, transaction_type, description, created_at
-                FROM transactions
-                WHERE account_id = %s
-                ORDER BY created_at DESC
-                LIMIT 10
+                SELECT 
+                    a.balance, 
+                    a.account_limit,
+                    t.value, 
+                    t.transaction_type, 
+                    t.description, 
+                    t.created_at
+                FROM
+                    accounts a LEFT JOIN (
+                        SELECT * FROM transactions 
+                        WHERE account_id = %s 
+                        ORDER BY created_at DESC 
+                        LIMIT 10
+                    ) t on a.id = t.account_id
+                WHERE  
+                    a.id = %s
                 """,
-                [id],
+                [id, id],
             )
 
-            await p.sync()
+            response = await cur.fetchall()
+            balance_result = 0
+            limit_result = 0
 
-            balance = await balance_query
-            balance_result = None
-            limi_result = None
-            async for record in balance:
-                balance_result = record[0]
-                limi_result = record[1]
-
-            if balance_result is None:
+            if response is None or len(response) == 0:
                 raise HTTPException(status_code=404)
 
-            transactions = await transactions_query
             transactions_response = []
-            async for transaction in transactions:
+            for transaction in response:
+                balance_result = transaction[0]
+                limit_result = transaction[1]
+                if transaction[2] is None:
+                    continue
                 transactions_response.append(
                     TransactionResponse(
-                        valor=transaction[0],
-                        tipo=transaction[1],
-                        descricao=transaction[2],
-                        realizada_em=transaction[3],
+                        valor=transaction[2],
+                        tipo=transaction[3],
+                        descricao=transaction[4],
+                        realizada_em=transaction[5],
                     )
                 )
 
-            return { "saldo": { "total": balance_result, "data_extrato": datetime.now(), "limite": limi_result } , "ultimas_transacoes": transactions_response }
+            return { "saldo": { "total": balance_result, "data_extrato": datetime.now(), "limite": limit_result } , "ultimas_transacoes": transactions_response }
