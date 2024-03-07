@@ -18,18 +18,21 @@ def get_conn_str():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    max_connections = os.getenv("MAX_CONNECTIONS", 5)
-    min_connections = os.getenv("MIN_CONNECTIONS", 1)
+    # max_connections = os.getenv("MAX_CONNECTIONS", 5)
+    # min_connections = os.getenv("MIN_CONNECTIONS", 1)
     app.async_pool = AsyncConnectionPool(
         kwargs={"autocommit": True}, 
         # max_size=int(max_connections), 
         # min_size=int(min_connections),
+        num_workers=10,
         conninfo=get_conn_str())
     yield
     await app.async_pool.close()
 
 
 app = FastAPI(lifespan=lifespan)
+
+cached_accounts = {}
 
 @dataclass
 class TransactionRequest:
@@ -76,8 +79,13 @@ async def post_transaction(request: Request, id: int, transaction: TransactionRe
 @app.get("/clientes/{id}/extrato")
 async def get_balance_and_transactions(request: Request, id: int):
     async with request.app.async_pool.connection() as conn:
-        async with conn.cursor() as cur:
-            await cur.execute(
+        async with conn.pipeline() as p, conn.cursor() as cur:
+            if cached_accounts is None or len(cached_accounts) == 0:
+                accounts_response = await cur.execute("SELECT id, balance, account_limit FROM accounts")
+                async for account in accounts_response:
+                    cached_accounts[account[0]] = account
+            
+            transactions_response = await cur.execute(
                 """
                 SELECT 
                     a.balance, 
@@ -88,7 +96,8 @@ async def get_balance_and_transactions(request: Request, id: int):
                     t.created_at
                 FROM
                     accounts a LEFT JOIN (
-                        SELECT * FROM transactions 
+                        SELECT * 
+                        FROM transactions 
                         WHERE account_id = %s 
                         ORDER BY created_at DESC 
                         LIMIT 10
@@ -99,20 +108,23 @@ async def get_balance_and_transactions(request: Request, id: int):
                 [id, id],
             )
 
-            response = await cur.fetchall()
-            balance_result = 0
-            limit_result = 0
-
-            if response is None or len(response) == 0:
+            await p.sync()
+            
+            if id not in cached_accounts:
                 raise HTTPException(status_code=404)
+            
+            current_account = cached_accounts[id]
 
-            transactions_response = []
-            for transaction in response:
+            balance_result = current_account[1]
+            limit_result = current_account[2]
+
+            transactions_result = []
+            async for transaction in transactions_response:
                 balance_result = transaction[0]
                 limit_result = transaction[1]
                 if transaction[2] is None:
                     continue
-                transactions_response.append(
+                transactions_result.append(
                     TransactionResponse(
                         valor=transaction[2],
                         tipo=transaction[3],
@@ -121,4 +133,4 @@ async def get_balance_and_transactions(request: Request, id: int):
                     )
                 )
 
-            return { "saldo": { "total": balance_result, "data_extrato": datetime.now(), "limite": limit_result } , "ultimas_transacoes": transactions_response }
+            return { "saldo": { "total": balance_result, "data_extrato": datetime.now(), "limite": limit_result } , "ultimas_transacoes": transactions_result }
